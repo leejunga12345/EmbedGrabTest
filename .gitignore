@@ -1,0 +1,17 @@
+# Build
+entry/build/
+build/
+
+# Hvigor cache
+.hvigor/
+
+# IDE
+.idea/
+.clang-format
+
+# Claude Code
+.claude/
+
+# Node
+node_modules/
+oh_modules/

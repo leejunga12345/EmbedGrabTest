@@ -1,0 +1,16 @@
+{
+  "string": [
+    {
+      "name": "module_desc",
+      "value": "EmbedGrabTest entry"
+    },
+    {
+      "name": "EntryAbility_desc",
+      "value": "嵌入Grab元服务验证入口"
+    },
+    {
+      "name": "EntryAbility_label",
+      "value": "嵌入Grab测试"
+    }
+  ]
+}

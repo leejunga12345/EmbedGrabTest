@@ -1,0 +1,39 @@
+{
+  "app": {
+    "signingConfigs": [
+      {
+        "name": "default",
+        "type": "HarmonyOS",
+        "material": {
+          "certpath": "./officiallySigned/AtomicServeiceChujinTest.cer",
+          "storePassword": "000000294DD0D3799767DEF5A2113D5BD519660691A500BFFDD22A95092011EE9E38F2944A356CDAEA3C9B546196662C4ADF1D84F0DBAD21FC",
+          "keyAlias": "AtomicServeiceChujin",
+          "keyPassword": "00000029595787C1799A44C5CDAA4B68C695DF6D5BC3BA4CB44C44BEE7C5EB2410952C651234814E0FA368D729B321346153EFD9F8E2AD9403",
+          "profile": "./officiallySigned/AtomicServeiceChujinTestDebug.p7b",
+          "signAlg": "SHA256withECDSA",
+          "storeFile": "./officiallySigned/AtomicServeiceChujinTest.p12"
+        }
+      }
+    ],
+    "products": [
+      {
+        "name": "default",
+        "signingConfig": "default",
+        "compatibleSdkVersion": "5.0.0(12)",
+        "runtimeOS": "HarmonyOS"
+      }
+    ]
+  },
+  "modules": [
+    {
+      "name": "entry",
+      "srcPath": "./entry",
+      "targets": [
+        {
+          "name": "default",
+          "applyToProducts": ["default"]
+        }
+      ]
+    }
+  ]
+}

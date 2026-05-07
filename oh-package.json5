@@ -1,0 +1,11 @@
+{
+  "modelVersion": "5.0.1",
+  "name": "embed-grab-test",
+  "version": "1.0.0",
+  "description": "Grab 元服务嵌入验证独立测试应用",
+  "main": "",
+  "author": "",
+  "license": "",
+  "dependencies": {},
+  "devDependencies": {}
+}
