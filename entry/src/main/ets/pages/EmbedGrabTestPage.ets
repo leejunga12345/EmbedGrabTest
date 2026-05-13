@@ -1,18 +1,23 @@
 import { FullScreenLaunchComponent } from '@kit.ArkUI';
 import { common } from '@kit.AbilityKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
-import { BusinessError } from '@kit.BasicServicesKit';
+import { BusinessError, commonEventManager } from '@kit.BasicServicesKit';
 
 const TAG = 'EmbedGrabTestPage';
 const DOMAIN = 0xA002;
 const GRAB_APP_ID = '5765880207856208787';
 const GRAB_BUNDLE = 'com.atomicservice.5765880207856208787';
+const EVENT_STANDALONE_ACTIVE = 'grab.standalone.active';
+const EVENT_STANDALONE_CLEARED = 'grab.standalone.cleared';
 
 @Entry
 @ComponentV2
 struct EmbedGrabTestPage {
   @Local targetAbility: string = '';
   @Local logOutput: string = '';
+  /** 监听独立 Grab 发来的"关闭嵌入面板"信号——为 true 时不渲染 FullScreenLaunchComponent */
+  @Local embedDismissed: boolean = false;
+  private subscriber?: commonEventManager.CommonEventSubscriber;
 
   log(msg: string): void {
     hilog.info(DOMAIN, TAG, '%{public}s', msg);
@@ -21,6 +26,11 @@ struct EmbedGrabTestPage {
 
   aboutToAppear(): void {
     this.log('page ready');
+    this.subscribeStandaloneEvents();
+  }
+
+  aboutToDisappear(): void {
+    this.unsubscribeStandaloneEvents();
   }
 
   onPageShow(): void {
@@ -29,6 +39,53 @@ struct EmbedGrabTestPage {
 
   onPageHide(): void {
     this.log('onPageHide');
+  }
+
+  /** 订阅独立 Grab 协调事件——收到 active 时关闭嵌入面板 */
+  subscribeStandaloneEvents(): void {
+    const info: commonEventManager.CommonEventSubscribeInfo = {
+      events: [EVENT_STANDALONE_ACTIVE, EVENT_STANDALONE_CLEARED],
+      // 仅接受来自 Grab 的事件，防止第三方 app 伪造 active/cleared 事件
+      publisherBundleName: GRAB_BUNDLE
+    };
+    commonEventManager.createSubscriber(info).then((sub) => {
+      this.subscriber = sub;
+      commonEventManager.subscribe(sub, (err, data) => {
+        if (err) {
+          this.log('subscribe err: ' + JSON.stringify(err));
+          return;
+        }
+        this.handleStandaloneEvent(data);
+      });
+      this.log('subscribed to standalone events');
+    }).catch((e: BusinessError) => {
+      this.log('createSubscriber failed: ' + JSON.stringify(e));
+    });
+  }
+
+  unsubscribeStandaloneEvents(): void {
+    if (!this.subscriber) {
+      return;
+    }
+    commonEventManager.unsubscribe(this.subscriber, (err) => {
+      if (err) {
+        this.log('unsubscribe failed: ' + JSON.stringify(err));
+        return;
+      }
+      this.log('unsubscribed');
+    });
+    this.subscriber = undefined;
+  }
+
+  handleStandaloneEvent(data: commonEventManager.CommonEventData): void {
+    const event: string = data?.event ?? '';
+    const params: Record<string, Object> = data?.parameters ?? {};
+    this.log('received ' + event + ' params=' + JSON.stringify(params));
+    if (event === EVENT_STANDALONE_ACTIVE) {
+      this.embedDismissed = true;
+    } else if (event === EVENT_STANDALONE_CLEARED) {
+      this.embedDismissed = false;
+    }
   }
 
   buildParams(): Record<string, Object> {
@@ -97,16 +154,27 @@ struct EmbedGrabTestPage {
         Text('全屏嵌入拉起').fontWeight(FontWeight.Medium)
 
         Column() {
-          FullScreenLaunchComponent({
-            content: this.EmbedEntryButton,
-            appId: GRAB_APP_ID,
-            options: {
-              parameters: this.buildParams()
-            }
-          })
-            .width('100%')
-            .height(64)
-            .backgroundColor('#FFFFFF')
+          if (this.embedDismissed) {
+            // 独立 Grab 已激活，嵌入面板已被协调关闭
+            Text('Grab 已在独立应用中运行，请切换到 Grab 应用查看')
+              .fontSize(13)
+              .fontColor('#666')
+              .padding(12)
+              .backgroundColor('#F5F5F5')
+              .borderRadius(6)
+              .width('100%')
+          } else {
+            FullScreenLaunchComponent({
+              content: this.EmbedEntryButton,
+              appId: GRAB_APP_ID,
+              options: {
+                parameters: this.buildParams()
+              }
+            })
+              .width('100%')
+              .height(64)
+              .backgroundColor('#FFFFFF')
+          }
         }
 
         Divider()

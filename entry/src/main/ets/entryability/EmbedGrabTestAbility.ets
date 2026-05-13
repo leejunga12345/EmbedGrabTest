@@ -20,7 +20,6 @@ export default class EmbedGrabTestAbility extends UIAbility {
     try {
       const mainWin = windowStage.getMainWindowSync();
       mainWin.setWindowLayoutFullScreen(true);
-      hilog.info(DOMAIN, TAG, 'setWindowLayoutFullScreen(true) ok');
     } catch (e) {
       hilog.error(DOMAIN, TAG, 'setWindowLayoutFullScreen failed: %{public}s',
         (e as BusinessError).message);
