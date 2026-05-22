@@ -9,15 +9,22 @@ const GRAB_APP_ID = '5765880207856208787';
 const GRAB_BUNDLE = 'com.atomicservice.5765880207856208787';
 const EVENT_STANDALONE_ACTIVE = 'grab.standalone.active';
 const EVENT_STANDALONE_CLEARED = 'grab.standalone.cleared';
+const EMBED_ORIGIN_KEY = 'grab.embed.origin';
+const EMBED_SESSION_ID_KEY = 'grab.embed.sessionId';
 
 @Entry
 @ComponentV2
 struct EmbedGrabTestPage {
   @Local targetAbility: string = '';
   @Local logOutput: string = '';
+  @Local embedSessionId: string = '';
   /** 监听独立 Grab 发来的"关闭嵌入面板"信号——为 true 时不渲染 FullScreenLaunchComponent */
   @Local embedDismissed: boolean = false;
   private subscriber?: commonEventManager.CommonEventSubscriber;
+  /** 宿主侧乱序保护：记录最近一次已生效事件时间戳 */
+  private lastAppliedTs: number = 0;
+  /** 宿主侧反跳保护：记录最近一次 cleared 的会话 */
+  private lastClearedSessionKey: string = '';
 
   log(msg: string): void {
     hilog.info(DOMAIN, TAG, '%{public}s', msg);
@@ -81,24 +88,66 @@ struct EmbedGrabTestPage {
     const event: string = data?.event ?? '';
     const params: Record<string, Object> = data?.parameters ?? {};
     this.log('received ' + event + ' params=' + JSON.stringify(params));
+    const publishTs: number = this.readNumber(params['publishTs']);
+    const processLaunchId: string = String(params['processLaunchId'] ?? '');
+    const sessionId: string = String(params['sessionId'] ?? '');
+    const sessionKey: string = sessionId.length > 0 ? sessionId : processLaunchId;
+    if (publishTs > 0 && publishTs < this.lastAppliedTs) {
+      this.log('drop stale event event=' + event + ' publishTs=' + publishTs + ' lastAppliedTs=' + this.lastAppliedTs);
+      return;
+    }
     if (event === EVENT_STANDALONE_ACTIVE) {
+      if (sessionKey.length > 0 && sessionKey === this.lastClearedSessionKey) {
+        this.log('drop rebound active after cleared sessionKey=' + sessionKey);
+        return;
+      }
       this.embedDismissed = true;
+      if (publishTs > 0) {
+        this.lastAppliedTs = publishTs;
+      }
     } else if (event === EVENT_STANDALONE_CLEARED) {
       this.embedDismissed = false;
+      if (sessionKey.length > 0) {
+        this.lastClearedSessionKey = sessionKey;
+      }
+      // 一次会话闭环后清空，确保下一次嵌入重新生成新 sessionId。
+      this.embedSessionId = '';
+      if (publishTs > 0) {
+        this.lastAppliedTs = publishTs;
+      }
     }
   }
 
+  private readNumber(raw: Object | undefined): number {
+    if (raw == undefined) {
+      return 0;
+    }
+    const num = Number(raw);
+    return Number.isFinite(num) ? num : 0;
+  }
+
   buildParams(): Record<string, Object> {
+    this.ensureEmbedSessionId();
     const params: Record<string, Object> = {
       'test_flag': 'embed_test',
       'from': 'EmbedGrabTest',
       'isFullScreen': true
     };
+    params[EMBED_ORIGIN_KEY] = 'host';
+    params[EMBED_SESSION_ID_KEY] = this.embedSessionId;
     if (this.targetAbility.length > 0) {
       params['ability.params.targetAbilityName'] = this.targetAbility;
       params['abilityName'] = this.targetAbility;
     }
     return params;
+  }
+
+  private ensureEmbedSessionId(): void {
+    if (this.embedSessionId.length > 0) {
+      return;
+    }
+    this.embedSessionId = 'sess_' + Date.now().toString(36) + '_' + Math.floor(Math.random() * 100000).toString(36);
+    this.log('embedSessionId=' + this.embedSessionId);
   }
 
   jumpOutStart(): void {
@@ -135,11 +184,11 @@ struct EmbedGrabTestPage {
           .fontSize(12).fontColor(Color.Gray)
 
         Row({ space: 8 }) {
-          Button('指定 EmbedTestAbility')
+          Button('指定 EntryAbility')
             .fontSize(12)
             .onClick(() => {
-              this.targetAbility = 'EmbedTestAbility';
-              this.log('target=EmbedTestAbility');
+              this.targetAbility = 'EntryAbility';
+              this.log('target=EntryAbility');
             })
           Button('不指定(默认)')
             .fontSize(12)
